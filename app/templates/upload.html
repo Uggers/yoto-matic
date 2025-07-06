@@ -3,35 +3,31 @@
 {% block content %}
 <div id="upload-workflow">
 
-    <!-- Step 1: Initial Selection -->
-    <div id="select-step">
-        <h1 class="h2 mb-4">Upload Playlists</h1>
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">Select a Source Folder</h5>
-                <p class="card-text text-muted">Choose a folder from your computer. The app will find all valid Yoto playlist subfolders inside it.</p>
-                <form id="upload-form" method="POST" enctype="multipart/form-data">
-                    <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
-                    <button type="button" id="select-folder-btn" class="btn btn-primary btn-lg">
-                        <i class="bi bi-folder-symlink-fill me-2"></i> Browse for Folder(s)
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Step 2: Staging and Review Area -->
-    <div id="stage-step" class="d-none">
+    <!-- Step 1: Initial Selection & Staging Area -->
+    <div id="main-area">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="h2">Review & Confirm Uploads</h1>
-            <div>
-                <button id="back-to-browse-btn" class="btn btn-secondary">Back</button>
-                <button id="start-upload-btn" class="btn btn-success">
-                    <i class="bi bi-cloud-upload-fill me-1"></i> Start Upload Batch
+            <h1 class="h2">Upload Playlists</h1>
+            <div id="action-buttons">
+                <!-- Hidden file input for folder selection -->
+                <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
+                
+                <button type="button" id="add-more-btn" class="btn btn-outline-primary">
+                    <i class="bi bi-plus-circle"></i> Add Folder
+                </button>
+                <button id="start-upload-btn" class="btn btn-success d-none">
+                    <i class="bi bi-cloud-upload-fill me-1"></i> Upload Staged Playlists
                 </button>
             </div>
         </div>
+        
+        <!-- Staging Area for reviewing playlists -->
         <div id="stage-area" class="d-grid gap-3">
+            <div id="initial-prompt" class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Select a Source Folder to Begin</h5>
+                    <p class="card-text text-muted">Click the "Add Folder" button above to select a folder from your computer. The app will find all valid Yoto playlist subfolders inside it.</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -40,27 +36,21 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const selectStep = document.getElementById('select-step');
-    const stageStep = document.getElementById('stage-step');
     const folderPicker = document.getElementById('folder-picker');
-    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const addMoreBtn = document.getElementById('add-more-btn');
     const stageArea = document.getElementById('stage-area');
     const startUploadBtn = document.getElementById('start-upload-btn');
-    const backBtn = document.getElementById('back-to-browse-btn');
+    const initialPrompt = document.getElementById('initial-prompt');
 
-    selectFolderBtn.addEventListener('click', () => folderPicker.click());
-    backBtn.addEventListener('click', () => {
-        stageStep.classList.add('d-none');
-        selectStep.classList.remove('d-none');
-        folderPicker.value = '';
-    });
+    addMoreBtn.addEventListener('click', () => folderPicker.click());
 
     folderPicker.addEventListener('change', async (e) => {
         if (e.target.files.length === 0) return;
-
-        selectStep.classList.add('d-none');
-        stageStep.classList.remove('d-none');
-        stageArea.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Uploading and parsing folder...</p></div>';
+        
+        // Show a temporary loading card
+        const loadingCard = createLoadingCard();
+        if(initialPrompt) initialPrompt.remove();
+        stageArea.appendChild(loadingCard);
 
         const formData = new FormData();
         for (const file of e.target.files) {
@@ -68,15 +58,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const response = await fetch('/api/stage-folder', { method: 'POST', body: formData });
+        loadingCard.remove(); // Remove the loader
+        
+        if (!response.ok) {
+            stageArea.insertAdjacentHTML('beforeend', `<div class="alert alert-danger">Server error during parsing. Check console logs.</div>`);
+            return;
+        }
+
         const playlists = await response.json();
         displayStagedPlaylists(playlists);
+        folderPicker.value = ''; // Reset for next selection
     });
 
-    const displayStagedPlaylists = (playlists) => {
-        stageArea.innerHTML = '';
+    function createLoadingCard() {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<div class="card-body text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Uploading and parsing folder...</p></div>`;
+        return card;
+    }
+
+    function displayStagedPlaylists(playlists) {
         if (playlists.length === 0) {
-            stageArea.innerHTML = '<div class="alert alert-warning">No valid Yoto playlist structures were found in the selected folder. A valid structure requires an `audio_files` subfolder with at least one audio file.</div>';
-            return;
+            stageArea.insertAdjacentHTML('beforeend', `<div class="alert alert-warning alert-dismissible fade show" role="alert">No valid Yoto playlist structures were found in that folder.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
         }
 
         playlists.forEach(p => {
@@ -112,7 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             stageArea.appendChild(card);
         });
-    };
+
+        if (document.querySelectorAll('.staged-card').length > 0) {
+            startUploadBtn.classList.remove('d-none');
+        }
+    }
     
     startUploadBtn.addEventListener('click', async () => {
         startUploadBtn.disabled = true;

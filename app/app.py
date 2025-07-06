@@ -1,6 +1,5 @@
 import os, json, time, shutil
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, Response, stream_with_context, send_from_directory
-from werkzeug.utils import secure_filename
 from threading import Thread
 from queue import Queue
 
@@ -11,31 +10,21 @@ import parser
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'the-final-secret-key-for-real-this-time'
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 # 500 MB upload limit
 
-# --- LIVE LOG STREAMING SETUP ---
+# --- LIVE LOG & HELPERS ---
 log_queue = Queue()
-
-def log_to_stream(message):
-    log_queue.put(f"data: {message}\n\n")
-
+def log_to_stream(message): log_queue.put(f"data: {message}\n\n")
 scraper.log_to_stream = log_to_stream
 automation.log_to_stream = log_to_stream
-
-@app.route('/stream-logs')
-def stream_logs():
-    def generate():
-        while True:
-            message = log_queue.get()
-            yield message
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
-# --- END LIVE LOG ---
-
 db.init_db()
+def run_in_background(target, *args): Thread(target=target, args=args, daemon=True).start()
 
-def run_in_background(target, *args):
-    Thread(target=target, args=args, daemon=True).start()
+# --- ROUTES ---
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204 # Stop the 404 error in logs
 
-# --- Frontend Routes ---
 @app.route('/')
 def dashboard(): return render_template('dashboard.html', playlists=db.get_all_playlists())
 
@@ -50,8 +39,7 @@ def settings_page():
     settings_path = os.path.join('data', 'settings.json')
     if request.method == 'POST':
         settings = {"yoto_email": request.form.get('yoto_email'), "yoto_password": request.form.get('yoto_password')}
-        with open(settings_path, 'w') as f:
-            json.dump(settings, f)
+        with open(settings_path, 'w') as f: json.dump(settings, f)
         flash('Settings saved successfully!', 'success')
         return redirect(url_for('settings_page'))
     current_settings = {}
@@ -59,31 +47,45 @@ def settings_page():
         with open(settings_path, 'r') as f: current_settings = json.load(f)
     return render_template('settings.html', settings=current_settings)
 
+@app.route('/stream-logs')
+def stream_logs():
+    def generate():
+        while True: yield log_queue.get()
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
 # --- APIs ---
 @app.route('/temp-image/<path:filename>')
 def temp_image(filename):
-    return send_from_directory(os.path.join(os.getcwd(), 'data', 'temp'), filename.replace('\\', '/'))
+    # Construct the safe path within the app's data directory
+    safe_base_path = os.path.abspath(os.path.join(os.getcwd(), 'data', 'temp'))
+    requested_path = os.path.abspath(os.path.join(safe_base_path, filename.replace('\\', '/')))
+    # Security check: ensure the requested path is within our temp directory
+    if not requested_path.startswith(safe_base_path):
+        return "Forbidden", 403
+    return send_from_directory(os.path.dirname(requested_path), os.path.basename(requested_path))
 
 @app.route('/api/stage-folder', methods=['POST'])
 def stage_folder_api():
     files = request.files.getlist('files[]')
-    if not files:
-        return jsonify({"error": "No files were uploaded."}), 400
+    if not files: return jsonify({"error": "No files were uploaded."}), 400
 
     upload_id = str(int(time.time()))
     batch_dir = os.path.join('data', 'temp', upload_id)
     os.makedirs(batch_dir)
 
-    top_level_folder_name = files[0].filename.split('/')[0]
-    root_parse_dir = os.path.join(batch_dir, top_level_folder_name)
-
+    # **THE BUG FIX IS HERE**: We no longer use secure_filename, which was breaking paths.
     for f in files:
-        save_path = os.path.join(batch_dir, secure_filename(f.filename))
+        # We trust the relative path from the browser's sandboxed file chooser
+        save_path = os.path.join(batch_dir, f.filename)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         f.save(save_path)
     
+    # The browser sends all files from a selected folder, with the folder as the first part of the path
+    top_level_folder_name = files[0].filename.split('/')[0]
+    root_parse_dir = os.path.join(batch_dir, top_level_folder_name)
     found_playlists = parser.smart_parse_folder(root_parse_dir)
     
+    # Adjust image paths to be relative for the new temp-image API
     for playlist in found_playlists:
         if playlist['data'].get('cover_image_path'):
             relative_path = os.path.relpath(playlist['data']['cover_image_path'], os.path.join(os.getcwd(), 'data', 'temp'))
@@ -102,8 +104,7 @@ def upload_batch_api():
 
 @app.route('/api/test-credentials', methods=['POST'])
 def test_credentials_api():
-    email = request.json.get('email')
-    password = request.json.get('password')
+    email, password = request.json.get('email'), request.json.get('password')
     run_in_background(scraper.test_login, email, password)
     return jsonify({"status": "success", "message": "Test started. See live log for details."})
     
@@ -111,6 +112,3 @@ def test_credentials_api():
 def trigger_sync():
     run_in_background(scraper.sync_library_from_yoto)
     return jsonify({"status": "Sync started. See live log for details."})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)

@@ -27,7 +27,8 @@ def smart_parse_folder(path):
     def parse_single_playlist(playlist_path):
         folder_name = os.path.basename(playlist_path)
         errors = []
-        data = {'Title': folder_name, 'Author': 'Unknown', 'Description': ''}
+        # Start with a title based on the folder name, which can be overwritten by card.txt
+        data = {'Title': folder_name.replace('_', ' ').replace('-', ' ').title(), 'Author': 'Unknown', 'Description': ''}
 
         if not os.path.isdir(playlist_path): return None
 
@@ -38,7 +39,7 @@ def smart_parse_folder(path):
         if os.path.exists(card_txt_path):
             data.update(parse_key_value_file(card_txt_path))
         else:
-            errors.append("Warning: Missing card.txt. Using folder name as title.")
+            errors.append("Warning: Missing card.txt.")
 
         if os.path.exists(cover_image_path):
             data['cover_image_path'] = cover_image_path
