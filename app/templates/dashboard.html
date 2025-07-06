@@ -3,7 +3,6 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h2">My Yoto Library</h1>
     <div>
-        <!-- The old print button is gone from here -->
         <button id="sync-btn" class="btn btn-outline-primary">
             <i class="bi bi-arrow-repeat"></i> Sync from Yoto
         </button>
@@ -23,7 +22,6 @@
       <div class="card-body pb-2">
         <h5 class="card-title text-truncate" title="{{ playlist.title }}">{{ playlist.title }}</h5>
       </div>
-      <!-- NEW BUTTON TO ADD TO QUEUE -->
       <div class="card-footer text-center bg-transparent border-0 pt-0">
           <button class="btn btn-sm btn-outline-info w-100 add-to-queue-btn" data-playlist-id="{{ playlist.id }}">
               <i class="bi bi-printer"></i> Add to Print Queue
@@ -38,13 +36,13 @@
 
 {% block scripts %}
 <script>
-    // Script for the sync button (unchanged)
     document.getElementById('sync-btn').addEventListener('click', async (e) => {
         const response = await fetch('/api/sync-library', { method: 'POST' });
-        if (response.ok) { window.location.href = "{{ url_for('activity_page') }}"; }
+        if (response.ok) { 
+            window.location.href = "{{ url_for('activity_page') }}";
+        }
     });
 
-    // NEW SCRIPT FOR ADDING TO PRINT QUEUE
     document.querySelectorAll('.add-to-queue-btn').forEach(button => {
         button.addEventListener('click', async (e) => {
             const btn = e.currentTarget;
@@ -59,13 +57,19 @@
                 btn.innerHTML = '<i class="bi bi-check-lg"></i> Added!';
                 btn.classList.remove('btn-outline-info');
                 btn.classList.add('btn-success');
-                // Update the navbar badge
-                const badge = document.getElementById('print-queue-badge');
-                if(badge) {
+                
+                let badge = document.getElementById('print-queue-badge');
+                if (badge) {
                     badge.textContent = data.queue_count;
                 } else {
-                    // If badge doesn't exist, we might need to create it (or just rely on page refresh)
-                    window.location.reload(); 
+                    // If the badge doesn't exist, we create and add it
+                    const navLink = document.querySelector('a[href="{{ url_for(\'print_queue_page\') }}"]');
+                    navLink.classList.add('position-relative');
+                    badge = document.createElement('span');
+                    badge.id = 'print-queue-badge';
+                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                    badge.innerHTML = `${data.queue_count}<span class="visually-hidden">items in print queue</span>`;
+                    navLink.appendChild(badge);
                 }
             } else {
                 btn.innerHTML = 'Error!';

@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Yoto-Matic</title>
+    
     <link rel="icon" type="image/png" href="https://my.yotoplay.com/favicon.png">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
@@ -14,22 +16,32 @@
     <style>
         :root { --yoto-orange: #FF6A1F; }
         body { font-family: 'Inter', sans-serif; }
+        
         .navbar.bg-yoto-orange { background-color: var(--yoto-orange) !important; }
         .navbar.bg-yoto-orange .navbar-brand, .navbar.bg-yoto-orange .nav-link { color: rgba(255, 255, 255, 0.9); }
         .navbar.bg-yoto-orange .nav-link:hover, .navbar.bg-yoto-orange .nav-link:focus { color: white; }
         .navbar.bg-yoto-orange .nav-link.active { color: white; font-weight: 700; }
         .navbar.bg-yoto-orange .navbar-toggler-icon { filter: brightness(0) invert(1); }
+        
         .logo-matic-text { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; fill: white; }
-        .playlist-card .card-img-top { aspect-ratio: 453 / 718; object-fit: cover; background-color: #343a40; }
+
+        .playlist-card .card-img-top {
+            aspect-ratio: 453 / 718;
+            object-fit: cover;
+            background-color: #343a40;
+        }
         [data-bs-theme="light"] .playlist-card .card-img-top { background-color: #e9ecef; }
-        /* Style for our new toast log */
-        .log-toast { min-width: 350px; }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg bg-yoto-orange sticky-top">
         <div class="container-fluid">
-            <!-- ... (logo is unchanged) ... -->
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <svg height="35" width="200" xmlns="http://www.w3.org/2000/svg">
+                    <image href="https://www.datocms-assets.com/48136/1633095990-logotype-3x.png" x="0" y="5" height="25" width="75" />
+                    <text x="80" y="24" class="logo-matic-text">-Matic</text>
+                </svg>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -38,13 +50,13 @@
                     <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'upload_page' else '' }}" href="{{ url_for('upload_page') }}">Upload</a></li>
                     <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'activity_page' else '' }}" href="{{ url_for('activity_page') }}">Activity</a></li>
-                    <!-- NEW PRINT QUEUE LINK WITH BADGE -->
                     <li class="nav-item">
                         <a class="nav-link position-relative {{ 'active' if request.endpoint == 'print_queue_page' else '' }}" href="{{ url_for('print_queue_page') }}">
                             Print Queue
                             {% if print_queue_count > 0 %}
                             <span id="print-queue-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                                 {{ print_queue_count }}
+                                <span class="visually-hidden">items in print queue</span>
                             </span>
                             {% endif %}
                         </a>
@@ -69,64 +81,9 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- === NEW TOAST NOTIFICATION CONTAINER === -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="liveLogToast" class="toast log-toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
-            <div class="toast-header">
-                <strong class="me-auto"><i class="bi bi-robot me-2"></i>Live Activity</strong>
-                <small>Now</small>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body">
-                <pre id="log-content" class="mb-0" style="font-size: 0.8em; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"></pre>
-            </div>
-        </div>
-    </div>
-    <!-- ======================================= -->
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const logToastEl = document.getElementById('liveLogToast');
-            const logToast = new bootstrap.Toast(logToastEl);
-            const logContent = document.getElementById('log-content');
-            let eventSource;
-            let logTimeout;
-
-            window.startLogStream = function() {
-                if (window.EventSource && (!eventSource || eventSource.readyState === EventSource.CLOSED)) {
-                    logContent.textContent = 'Connecting to log stream...\n';
-                    logToast.show();
-                    eventSource = new EventSource('/stream-logs');
-                    
-                    eventSource.onmessage = (event) => {
-                        clearTimeout(logTimeout); // Reset the auto-hide timer on new message
-                        const message = event.data;
-                        logContent.textContent += message + '\n';
-                        logContent.scrollTop = logContent.scrollHeight;
-
-                        // Check for task completion to auto-hide the toast
-                        if (message.includes('Finished') || message.includes('successful!') || message.includes('failed.')) {
-                            let statusClass = message.includes('successful!') ? 'bg-success' : (message.includes('failed.') ? 'bg-danger' : 'bg-secondary');
-                            logToastEl.classList.add(statusClass, 'text-white');
-
-                            logTimeout = setTimeout(() => {
-                                logToast.hide();
-                                logToastEl.classList.remove('bg-success', 'bg-danger', 'bg-secondary', 'text-white');
-                            }, 5000); // Hide after 5 seconds
-                        }
-                    };
-
-                    eventSource.onerror = () => {
-                        logContent.textContent += 'Connection to log stream lost. Reconnecting...\n';
-                        eventSource.close();
-                        setTimeout(window.startLogStream, 3000);
-                    };
-                } else if (eventSource && eventSource.readyState === EventSource.OPEN) {
-                    logToast.show();
-                }
-            }
-
             const themeToggler = document.getElementById('theme-toggler');
             if (themeToggler) {
                 const htmlElement = document.documentElement;
