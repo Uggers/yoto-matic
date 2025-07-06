@@ -33,6 +33,11 @@ def upload_page(): return render_template('upload.html')
 @app.route('/activity')
 def activity_page(): return render_template('activity.html', logs=db.get_activity_logs())
 
+@app.route('/print-queue')
+def print_queue_page():
+    items = db.get_print_queue_items()
+    return render_template('print_queue.html', items=items)
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings_page():
     session_file_path = os.path.join('data', 'yoto_session.json')
