@@ -5,8 +5,8 @@
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">Yoto Credentials</h5>
-        <p class="card-text text-muted">Your credentials are required for the app to sync your library and upload new playlists. They are stored locally in a file inside the container.</p>
-        <form method="POST">
+        <form id="settings-form" method="POST">
+            <div id="test-result-alert" class="alert d-none" role="alert"></div>
             <div class="mb-3">
                 <label for="yoto_email" class="form-label">Yoto Email Address</label>
                 <input type="email" class="form-control" id="yoto_email" name="yoto_email" value="{{ settings.yoto_email or '' }}" required>
@@ -16,7 +16,37 @@
                 <input type="password" class="form-control" id="yoto_password" name="yoto_password" value="{{ settings.yoto_password or '' }}" required>
             </div>
             <button type="submit" class="btn btn-primary">Save Settings</button>
+            <button type="button" id="test-btn" class="btn btn-outline-secondary">Test Credentials</button>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('test-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('test-btn');
+    const alertBox = document.getElementById('test-result-alert');
+    const email = document.getElementById('yoto_email').value;
+    const password = document.getElementById('yoto_password').value;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testing...';
+    alertBox.classList.add('d-none');
+    
+    const response = await fetch('/api/test-credentials', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+    });
+    const result = await response.json();
+
+    alertBox.textContent = result.message;
+    alertBox.className = `alert ${result.status === 'success' ? 'alert-success' : 'alert-danger'}`;
+    alertBox.classList.remove('d-none');
+
+    btn.disabled = false;
+    btn.textContent = 'Test Credentials';
+});
+</script>
 {% endblock %}

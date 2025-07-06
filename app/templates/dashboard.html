@@ -1,31 +1,23 @@
 {% extends "layout.html" %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h2">My Yoto Library</h1>
-    <button id="sync-btn" class="btn btn-info">
+    <button id="sync-btn" class="btn btn-outline-primary">
         <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
         <i class="bi bi-arrow-repeat"></i> Sync from Yoto
     </button>
 </div>
-
 {% if not playlists %}
 <div class="text-center p-5 bg-body-secondary rounded">
     <h4>Your local library is empty.</h4>
-    <p>Click "Sync from Yoto" to fetch your playlists, or go to "Upload New" to create one.</p>
+    <p>Click "Sync from Yoto" to fetch your playlists, or go to "Upload" to create one.</p>
 </div>
 {% else %}
 <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="playlist-grid">
   {% for playlist in playlists %}
-  <div class="col" data-id="{{ playlist.id }}">
+  <div class="col">
     <div class="card h-100 playlist-card">
-        {% if playlist.cover_image_url %}
-            <img src="{{ playlist.cover_image_url }}" class="card-img-top" alt="{{ playlist.title }}">
-        {% else %}
-            <div class="card-img-top d-flex align-items-center justify-content-center">
-                <i class="bi bi-music-note-beamed text-muted" style="font-size: 4rem;"></i>
-            </div>
-        {% endif %}
+        <img src="{{ playlist.cover_image_url if playlist.cover_image_url else 'https://via.placeholder.com/300' }}" class="card-img-top" alt="{{ playlist.title }}">
       <div class="card-body">
         <h5 class="card-title text-truncate" title="{{ playlist.title }}">{{ playlist.title }}</h5>
       </div>
@@ -35,30 +27,20 @@
 </div>
 {% endif %}
 {% endblock %}
-
 {% block scripts %}
 <script>
     document.getElementById('sync-btn').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         const spinner = btn.querySelector('.spinner-border');
         const icon = btn.querySelector('.bi-arrow-repeat');
-
         btn.disabled = true;
         spinner.classList.remove('d-none');
         icon.classList.add('d-none');
-
         try {
-            const response = await fetch('/api/sync-library', { method: 'POST' });
-            const data = await response.json();
-            alert(data.status);
-            // Reload the page to show new data after a short delay
-            setTimeout(() => window.location.reload(), 2000);
-        } catch (error) {
-            alert('An error occurred while trying to start the sync.');
+            await fetch('/api/sync-library', { method: 'POST' });
+            setTimeout(() => window.location.reload(), 1000);
         } finally {
-            btn.disabled = false;
-            spinner.classList.add('d-none');
-            icon.classList.remove('d-none');
+            // Keep it disabled, page will reload
         }
     });
 </script>

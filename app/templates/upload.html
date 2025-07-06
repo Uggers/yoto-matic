@@ -1,49 +1,73 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<h1 class="h2 mb-4">Upload New Playlist</h1>
+<h1 class="h2 mb-4">Upload Playlists from Your Computer</h1>
+
 <div class="card">
-    <div class="card-body">
+    <div class="card-body text-center">
+        <h5 class="card-title">Select a Folder to Upload</h5>
+        <p class="card-text text-muted">Choose a folder containing one or more Yoto playlist subfolders. The app will automatically find and process them.</p>
+
+        <!-- The form now submits the files to the backend for parsing -->
         <form id="upload-form" method="POST" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="title" class="form-label">Playlist Title <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="title" name="title" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="description" class="form-label">Description (Optional)</label>
-                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-            </div>
-
-            <div class="mb-3">
-                <label for="cover_image" class="form-label">Cover Artwork <span class="text-danger">*</span></label>
-                <input class="form-control" type="file" id="cover_image" name="cover_image" accept="image/png, image/jpeg" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="audio_files" class="form-label">Audio Files <span class="text-danger">*</span></label>
-                <input class="form-control" type="file" id="audio_files" name="audio_files" accept="audio/mp3, audio/m4a, audio/ogg" multiple required>
-                <div class="form-text">You can select multiple audio files. They will be uploaded in alphabetical order.</div>
-            </div>
-
-            <button type="submit" id="submit-btn" class="btn btn-primary">
-                <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
-                Start Upload
+            <!-- This hidden input is the key. `webkitdirectory` allows folder selection -->
+            <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
+            
+            <button type="button" id="select-folder-btn" class="btn btn-primary btn-lg">
+                <i class="bi bi-folder-symlink-fill me-2"></i> Select Folder
             </button>
         </form>
+        
+        <div id="file-preview-area" class="mt-4 text-start d-none">
+            <h6>Selected for Upload:</h6>
+            <ul id="file-list" class="list-group"></ul>
+            <button type="submit" form="upload-form" id="submit-btn" class="btn btn-success mt-3">
+                <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                Confirm and Start Upload
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.getElementById('upload-form').addEventListener('submit', (e) => {
-        const btn = document.getElementById('submit-btn');
-        const spinner = btn.querySelector('.spinner-border');
+document.addEventListener('DOMContentLoaded', () => {
+    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const folderPicker = document.getElementById('folder-picker');
+    const filePreviewArea = document.getElementById('file-preview-area');
+    const fileList = document.getElementById('file-list');
+    const submitBtn = document.getElementById('submit-btn');
 
-        btn.disabled = true;
-        spinner.classList.remove('d-none');
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Uploading...`;
+    selectFolderBtn.addEventListener('click', () => {
+        folderPicker.click();
     });
+
+    folderPicker.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files.length === 0) {
+            filePreviewArea.classList.add('d-none');
+            return;
+        }
+
+        fileList.innerHTML = '';
+        const fileCount = files.length;
+        const folderName = files[0].webkitRelativePath.split('/')[0];
+        
+        const summaryItem = document.createElement('li');
+        summaryItem.className = 'list-group-item list-group-item-info';
+        summaryItem.innerHTML = `<strong>Folder:</strong> ${folderName} <span class="badge bg-secondary float-end">${fileCount} files found</span>`;
+        fileList.appendChild(summaryItem);
+
+        filePreviewArea.classList.remove('d-none');
+    });
+    
+    document.getElementById('upload-form').addEventListener('submit', () => {
+        submitBtn.disabled = true;
+        const spinner = submitBtn.querySelector('.spinner-border');
+        spinner.classList.remove('d-none');
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Uploading to Pi...`;
+    });
+});
 </script>
 {% endblock %}

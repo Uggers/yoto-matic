@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h2">Upload Activity</h1>
+    <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Playlist Title</th>
+                    <th>Status</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="text-nowrap">{{ log.timestamp.split('.')[0] }}</td>
+                    <td>{{ log.playlist_title }}</td>
+                    <td>
+                        {% if log.status == 'Success' %}
+                            <span class="badge text-bg-success">{{ log.status }}</span>
+                        {% elif log.status == 'Failed' %}
+                            <span class="badge text-bg-danger">{{ log.status }}</span>
+                        {% elif log.status == 'Uploading' %}
+                            <span class="badge text-bg-warning">{{ log.status }}</span>
+                        {% else %}
+                            <span class="badge text-bg-info">{{ log.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="white-space: pre-wrap; word-break: break-word;">{{ log.details }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted p-4">No activity yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

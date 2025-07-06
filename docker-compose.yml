@@ -2,8 +2,10 @@ services:
   web:
     build: ./app
     ports:
-      - "6969:5000" # Changed: Access from your browser on port 6969
+      - "6969:5000"
     volumes:
-      # Mount a single folder to persist the DB, settings, and temp files
+      # Mount a folder for our persistent data (DB, settings)
       - ./data:/app/data
+      # Mount the user's media library as read-only for browsing
+      - /path/to/your/audiobooks:/media/audiobooks:ro
     restart: unless-stopped
