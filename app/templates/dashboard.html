@@ -62,8 +62,10 @@
                 if (badge) {
                     badge.textContent = data.queue_count;
                 } else {
-                    // If the badge doesn't exist, we create and add it
-                    const navLink = document.querySelector('a[href="{{ url_for(\'print_queue_page\') }}"]');
+                    // === THIS IS THE CORRECTED LINE ===
+                    // We use double quotes for the url_for argument to avoid the backslash
+                    const navLink = document.querySelector('a[href="{{ url_for("print_queue_page") }}"]');
+                    // ===================================
                     navLink.classList.add('position-relative');
                     badge = document.createElement('span');
                     badge.id = 'print-queue-badge';
