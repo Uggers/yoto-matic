@@ -1,10 +1,20 @@
 import os, json, time
+from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import database as db
-from automation import get_selenium_driver # Reuse driver function
+
+def get_selenium_driver():
+    """Configures and returns a Selenium WebDriver instance."""
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(options=options)
+    return driver
 
 def test_login(email, password):
     """A quick, targeted function to test credentials."""
@@ -28,8 +38,7 @@ def test_login(email, password):
         driver.quit()
 
 def login_to_yoto(driver):
-    # ... (code is the same as before) ...
-    # This function is now used by the real sync and upload processes
+    """Handles the login process for real operations."""
     settings_path = os.path.join('data', 'settings.json')
     if not os.path.exists(settings_path):
         raise ValueError("Settings not found. Configure credentials in the Settings page.")
@@ -47,21 +56,21 @@ def login_to_yoto(driver):
     wait.until(EC.url_contains("/my-cards"))
 
 def sync_library_from_yoto():
-    # ... (code is the same as before) ...
+    """Logs into Yoto, scrapes all existing playlists, and saves them to the local DB."""
     driver = get_selenium_driver()
     print("Starting library sync...")
-    scraped_playlists = []
     
     try:
         login_to_yoto(driver)
         driver.get("https://my.yotoplay.com/my-cards")
         wait = WebDriverWait(driver, 20)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[href^='/card/']")))
-        time.sleep(3)
+        time.sleep(3) # Let JS render everything
 
         playlist_links = driver.find_elements(By.CSS_SELECTOR, "a[href^='/card/']")
         print(f"Found {len(playlist_links)} potential playlist(s) on the page.")
-
+        
+        scraped_playlists = []
         for link in playlist_links:
             title = link.text
             if "Add Playlist" in title or not title.strip():

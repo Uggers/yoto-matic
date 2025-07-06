@@ -4,8 +4,7 @@ services:
     ports:
       - "6969:5000"
     volumes:
-      # Mount a folder for our persistent data (DB, settings)
+      # We ONLY need to persist the app's internal data (DB, settings, and temp uploads).
+      # No media library mount is needed.
       - ./data:/app/data
-      # Mount the user's media library as read-only for browsing
-      - /path/to/your/audiobooks:/media/audiobooks:ro
     restart: unless-stopped

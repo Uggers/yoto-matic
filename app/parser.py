@@ -1,15 +1,23 @@
 import os
 
 def parse_key_value_file(file_path):
-    # ... (code is the same as the previous version) ...
+    """Generic parser for files with 'Key:: Value' format."""
     data = {}
     if not os.path.exists(file_path):
         return data
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            if '::' in line:
-                key, value = line.split('::', 1)
-                data[key.strip()] = value.strip()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if '::' in line:
+                    key, value = line.split('::', 1)
+                    data[key.strip()] = value.strip()
+    except Exception:
+        # Fallback for different encodings if utf-8 fails
+        with open(file_path, 'r', encoding='latin-1') as f:
+            for line in f:
+                if '::' in line:
+                    key, value = line.split('::', 1)
+                    data[key.strip()] = value.strip()
     return data
 
 def parse_playlist_folder(path):
@@ -38,10 +46,8 @@ def parse_playlist_folder(path):
     if os.path.exists(audio_files_path):
         audio_files = sorted([f for f in os.listdir(audio_files_path) if f.lower().endswith(('.mp3', '.m4a', '.ogg'))])
         for i, audio_file in enumerate(audio_files, 1):
-            track_title = os.path.splitext(audio_file)[0].replace('_', ' ').replace('-', ' ')
-            icon_path = os.path.join(path, 'images', f'{i}.png')
-            if not os.path.exists(icon_path):
-                errors.append(f"Missing icon: images/{i}.png")
+            # Create a clean title from the filename
+            track_title = os.path.splitext(audio_file)[0].replace('_', ' ').replace('-', ' ').title()
             
             tracks.append({
                 'trackNumber': i,
@@ -50,6 +56,10 @@ def parse_playlist_folder(path):
             })
     data['tracks'] = tracks
     data['cover_image_path'] = cover_image_path
+    
+    # If no audio tracks were found, it's not a valid playlist.
+    if not tracks:
+        errors.append("No audio files (.mp3, .m4a, .ogg) found in audio_files/ directory.")
     
     return {
         "folderName": folder_name,

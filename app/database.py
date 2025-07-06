@@ -10,7 +10,7 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Initializes the database and creates the table if it doesn't exist."""
+    """Initializes the database and creates the tables if they don't exist."""
     conn = get_db_connection()
     with conn:
         conn.execute('''
@@ -22,7 +22,33 @@ def init_db():
                 status TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                playlist_title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                details TEXT
+            )
+        ''')
     conn.close()
+
+def log_activity(title, status, details=""):
+    """Adds a new record to the activity log."""
+    conn = get_db_connection()
+    with conn:
+        conn.execute(
+            "INSERT INTO activity_log (playlist_title, status, details) VALUES (?, ?, ?)",
+            (title, status, details)
+        )
+    conn.close()
+
+def get_activity_logs():
+    """Retrieves all activity logs, newest first."""
+    conn = get_db_connection()
+    logs = conn.execute('SELECT * FROM activity_log ORDER BY timestamp DESC').fetchall()
+    conn.close()
+    return logs
 
 def sync_scraped_playlists(playlists_data):
     """Clears and replaces the playlists table with freshly scraped data."""
@@ -30,14 +56,10 @@ def sync_scraped_playlists(playlists_data):
     with conn:
         conn.execute('DELETE FROM playlists')
         for playlist in playlists_data:
-            conn.execute('''
-                INSERT INTO playlists (title, author, cover_image_url, status)
-                VALUES (?, ?, ?, 'complete')
-            ''', (
-                playlist['title'],
-                "Synced from Yoto",
-                playlist['cover_image_url']
-            ))
+            conn.execute(
+                "INSERT INTO playlists (title, author, cover_image_url, status) VALUES (?, ?, ?, 'complete')",
+                (playlist['title'], "Synced from Yoto", playlist['cover_image_url'])
+            )
     conn.close()
 
 def get_all_playlists():
