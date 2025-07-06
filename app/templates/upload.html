@@ -1,30 +1,37 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<h1 class="h2 mb-4">Upload Playlists from Your Computer</h1>
+<div id="upload-workflow">
 
-<div class="card">
-    <div class="card-body text-center">
-        <h5 class="card-title">Select a Folder to Upload</h5>
-        <p class="card-text text-muted">Choose a folder containing one or more Yoto playlist subfolders. The app will automatically find and process them.</p>
+    <!-- Step 1: Initial Selection -->
+    <div id="select-step">
+        <h1 class="h2 mb-4">Upload Playlists</h1>
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Select a Source Folder</h5>
+                <p class="card-text text-muted">Choose a folder from your computer. The app will find all valid Yoto playlist subfolders inside it.</p>
+                <form id="upload-form" method="POST" enctype="multipart/form-data">
+                    <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
+                    <button type="button" id="select-folder-btn" class="btn btn-primary btn-lg">
+                        <i class="bi bi-folder-symlink-fill me-2"></i> Browse for Folder(s)
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        <!-- The form now submits the files to the backend for parsing -->
-        <form id="upload-form" method="POST" enctype="multipart/form-data">
-            <!-- This hidden input is the key. `webkitdirectory` allows folder selection -->
-            <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
-            
-            <button type="button" id="select-folder-btn" class="btn btn-primary btn-lg">
-                <i class="bi bi-folder-symlink-fill me-2"></i> Select Folder
-            </button>
-        </form>
-        
-        <div id="file-preview-area" class="mt-4 text-start d-none">
-            <h6>Selected for Upload:</h6>
-            <ul id="file-list" class="list-group"></ul>
-            <button type="submit" form="upload-form" id="submit-btn" class="btn btn-success mt-3">
-                <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
-                Confirm and Start Upload
-            </button>
+    <!-- Step 2: Staging and Review Area -->
+    <div id="stage-step" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="h2">Review & Confirm Uploads</h1>
+            <div>
+                <button id="back-to-browse-btn" class="btn btn-secondary">Back</button>
+                <button id="start-upload-btn" class="btn btn-success">
+                    <i class="bi bi-cloud-upload-fill me-1"></i> Start Upload Batch
+                </button>
+            </div>
+        </div>
+        <div id="stage-area" class="d-grid gap-3">
         </div>
     </div>
 </div>
@@ -33,40 +40,99 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const selectStep = document.getElementById('select-step');
+    const stageStep = document.getElementById('stage-step');
     const folderPicker = document.getElementById('folder-picker');
-    const filePreviewArea = document.getElementById('file-preview-area');
-    const fileList = document.getElementById('file-list');
-    const submitBtn = document.getElementById('submit-btn');
+    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const stageArea = document.getElementById('stage-area');
+    const startUploadBtn = document.getElementById('start-upload-btn');
+    const backBtn = document.getElementById('back-to-browse-btn');
 
-    selectFolderBtn.addEventListener('click', () => {
-        folderPicker.click();
+    selectFolderBtn.addEventListener('click', () => folderPicker.click());
+    backBtn.addEventListener('click', () => {
+        stageStep.classList.add('d-none');
+        selectStep.classList.remove('d-none');
+        folderPicker.value = '';
     });
 
-    folderPicker.addEventListener('change', (e) => {
-        const files = e.target.files;
-        if (files.length === 0) {
-            filePreviewArea.classList.add('d-none');
+    folderPicker.addEventListener('change', async (e) => {
+        if (e.target.files.length === 0) return;
+
+        selectStep.classList.add('d-none');
+        stageStep.classList.remove('d-none');
+        stageArea.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Uploading and parsing folder...</p></div>';
+
+        const formData = new FormData();
+        for (const file of e.target.files) {
+            formData.append('files[]', file, file.webkitRelativePath);
+        }
+
+        const response = await fetch('/api/stage-folder', { method: 'POST', body: formData });
+        const playlists = await response.json();
+        displayStagedPlaylists(playlists);
+    });
+
+    const displayStagedPlaylists = (playlists) => {
+        stageArea.innerHTML = '';
+        if (playlists.length === 0) {
+            stageArea.innerHTML = '<div class="alert alert-warning">No valid Yoto playlist structures were found in the selected folder. A valid structure requires an `audio_files` subfolder with at least one audio file.</div>';
             return;
         }
 
-        fileList.innerHTML = '';
-        const fileCount = files.length;
-        const folderName = files[0].webkitRelativePath.split('/')[0];
-        
-        const summaryItem = document.createElement('li');
-        summaryItem.className = 'list-group-item list-group-item-info';
-        summaryItem.innerHTML = `<strong>Folder:</strong> ${folderName} <span class="badge bg-secondary float-end">${fileCount} files found</span>`;
-        fileList.appendChild(summaryItem);
+        playlists.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'card staged-card';
+            card.dataset.fullData = JSON.stringify(p);
 
-        filePreviewArea.classList.remove('d-none');
-    });
+            const errorsHtml = p.validationErrors.map(err => `<li class="small ${err.startsWith('Error:') ? 'text-danger' : 'text-warning'}">${err}</li>`).join('');
+            const coverHtml = p.data.cover_image_url 
+                ? `<img src="${p.data.cover_image_url}" class="img-fluid rounded-start" style="width: 150px; height: 150px; object-fit: cover;">`
+                : `<div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-start text-muted" style="width: 150px; height: 150px;"><i class="bi bi-image-alt fs-1"></i></div>`;
+            const tracksHtml = p.data.tracks.map(t => `<li class="list-group-item py-1">${t.title}</li>`).join('');
+
+            card.innerHTML = `
+                <div class="row g-0">
+                    <div class="col-md-2">${coverHtml}</div>
+                    <div class="col-md-10">
+                        <div class="card-body">
+                            <input type="text" class="form-control form-control-lg mb-2" name="title" value="${p.data.Title}">
+                            <textarea class="form-control form-control-sm" name="description" rows="2">${p.data.Description}</textarea>
+                            <div class="row mt-2">
+                                <div class="col-lg-7">
+                                    <small class="fw-bold">Tracks Found (${p.data.tracks.length}):</small>
+                                    <ul class="list-group list-group-flush small" style="max-height: 100px; overflow-y: auto;">${tracksHtml}</ul>
+                                </div>
+                                <div class="col-lg-5">
+                                    <small class="fw-bold">Validation Status:</small>
+                                    <ul class="list-unstyled small">${errorsHtml}</ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            stageArea.appendChild(card);
+        });
+    };
     
-    document.getElementById('upload-form').addEventListener('submit', () => {
-        submitBtn.disabled = true;
-        const spinner = submitBtn.querySelector('.spinner-border');
-        spinner.classList.remove('d-none');
-        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Uploading to Pi...`;
+    startUploadBtn.addEventListener('click', async () => {
+        startUploadBtn.disabled = true;
+        startUploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Queuing...';
+        
+        const stagedCards = document.querySelectorAll('.staged-card');
+        const playlistsToUpload = Array.from(stagedCards).map(card => {
+            const data = JSON.parse(card.dataset.fullData);
+            data.data.Title = card.querySelector('input[name="title"]').value;
+            data.data.Description = card.querySelector('textarea[name="description"]').value;
+            return data;
+        });
+
+        await fetch('/api/start-upload-batch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({playlists: playlistsToUpload})
+        });
+        
+        window.location.href = "{{ url_for('activity_page') }}";
     });
 });
 </script>

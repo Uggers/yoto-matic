@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
-
 {% block content %}
 <h1 class="h2 mb-4">Settings</h1>
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">Yoto Credentials</h5>
+        <p class="card-text text-muted">Your credentials are required for the app to sync your library and upload new playlists. They are stored locally in a file inside the container.</p>
         <form id="settings-form" method="POST">
             <div id="test-result-alert" class="alert d-none" role="alert"></div>
             <div class="mb-3">
@@ -21,7 +21,6 @@
     </div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
 document.getElementById('test-btn').addEventListener('click', async () => {
@@ -33,18 +32,17 @@ document.getElementById('test-btn').addEventListener('click', async () => {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testing...';
     alertBox.classList.add('d-none');
+
+    window.startLogStream();
     
     const response = await fetch('/api/test-credentials', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({email, password})
     });
-    const result = await response.json();
-
-    alertBox.textContent = result.message;
-    alertBox.className = `alert ${result.status === 'success' ? 'alert-success' : 'alert-danger'}`;
-    alertBox.classList.remove('d-none');
-
+    
+    // We don't need to show an alert here anymore, the live log does the work.
+    // The user will see the result in the popup modal.
     btn.disabled = false;
     btn.textContent = 'Test Credentials';
 });

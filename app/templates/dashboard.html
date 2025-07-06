@@ -36,11 +36,12 @@
         btn.disabled = true;
         spinner.classList.remove('d-none');
         icon.classList.add('d-none');
+        window.startLogStream();
         try {
             await fetch('/api/sync-library', { method: 'POST' });
-            setTimeout(() => window.location.reload(), 1000);
         } finally {
-            // Keep it disabled, page will reload
+            // The live log will show progress, no need to re-enable button here.
+            // User can refresh when the log says "complete".
         }
     });
 </script>
