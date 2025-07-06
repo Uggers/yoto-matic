@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h2">Print Queue ({{ items|length }} Cards)</h1>
+    <div>
+        <button id="clear-queue-btn" class="btn btn-outline-danger" {% if not items %}disabled{% endif %}>
+            <i class="bi bi-trash"></i> Clear Queue
+        </button>
+        <button id="generate-btn" class="btn btn-primary" {% if not items %}disabled{% endif %}>
+            <i class="bi bi-file-earmark-image"></i> Generate Print Sheet
+        </button>
+    </div>
+</div>
+
+{% if not items %}
+<div class="text-center p-5 bg-body-secondary rounded">
+    <h4>Your print queue is empty.</h4>
+    <p>Go to the Dashboard to add playlists to the queue.</p>
+</div>
+{% else %}
+<div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3" id="queue-grid">
+    {% for item in items %}
+    <div class="col" id="queue-item-{{ item.id }}">
+        <div class="card playlist-card">
+            <img src="{{ item.cover_image_url if item.cover_image_url else 'https://via.placeholder.com/453x718' }}" class="card-img-top" alt="{{ item.title }}">
+            <div class="card-body p-2 text-center">
+                <h6 class="card-title small text-truncate mb-0" title="{{ item.title }}">{{ item.title }}</h6>
+            </div>
+            <button class="btn btn-danger btn-sm rounded-0 rounded-bottom remove-btn" data-playlist-id="{{ item.id }}">
+                <i class="bi bi-x-lg"></i> Remove
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('generate-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Generating...`;
+    
+    try {
+        const response = await fetch('/api/generate-print-sheet', { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to generate sheet on server.');
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = 'yoto-matic-print-sheet.png';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+        window.location.reload(); // Reload to show the empty queue
+    } catch (error) {
+        alert('An error occurred while generating the print sheet.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-file-earmark-image"></i> Generate Print Sheet`;
+    }
+});
+
+document.getElementById('clear-queue-btn')?.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to clear the entire print queue?')) {
+        await fetch('/api/print-queue/clear', { method: 'POST' });
+        window.location.reload();
+    }
+});
+
+document.querySelectorAll('.remove-btn').forEach(button => {
+    button.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const playlistId = btn.dataset.playlistId;
+        const response = await fetch(`/api/print-queue/remove/${playlistId}`, { method: 'POST' });
+        const data = await response.json();
+        if(data.success) {
+            document.getElementById(`queue-item-${playlistId}`).remove();
+            // Update other UI elements if needed, or just reload
+            window.location.reload(); 
+        }
+    });
+});
+</script>
+{% endblock %}

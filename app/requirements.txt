@@ -2,3 +2,4 @@ flask
 selenium
 gunicorn
 werkzeug
+requests

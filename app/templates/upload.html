@@ -12,7 +12,7 @@
                 <input type="file" id="folder-picker" name="files[]" webkitdirectory directory multiple style="display: none;">
                 
                 <button type="button" id="add-more-btn" class="btn btn-outline-primary">
-                    <i class="bi bi-plus-circle"></i> Add Folder
+                    <i class="bi bi-plus-circle"></i> Add Folder(s)
                 </button>
                 <button id="start-upload-btn" class="btn btn-success d-none">
                     <i class="bi bi-cloud-upload-fill me-1"></i> Upload Staged Playlists
@@ -24,8 +24,10 @@
         <div id="stage-area" class="d-grid gap-3">
             <div id="initial-prompt" class="card text-center">
                 <div class="card-body">
-                    <h5 class="card-title">Select a Source Folder to Begin</h5>
-                    <p class="card-text text-muted">Click the "Add Folder" button above to select a folder from your computer. The app will find all valid Yoto playlist subfolders inside it.</p>
+                    <!-- === NEW INSTRUCTIONAL TEXT IS HERE === -->
+                    <h5 class="card-title">Select a Parent Folder to Begin</h5>
+                    <p class="card-text text-muted">Click "Add Folder(s)" and choose a folder from your computer.<br>The app will automatically find all valid Yoto playlist subfolders inside it.</p>
+                    <p class="card-text"><small>Tip: To upload multiple playlists at once, put them all inside one parent folder and select that parent.</small></p>
                 </div>
             </div>
         </div>
@@ -47,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
     folderPicker.addEventListener('change', async (e) => {
         if (e.target.files.length === 0) return;
         
-        // Show a temporary loading card
         const loadingCard = createLoadingCard();
         if(initialPrompt) initialPrompt.remove();
         stageArea.appendChild(loadingCard);
@@ -58,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const response = await fetch('/api/stage-folder', { method: 'POST', body: formData });
-        loadingCard.remove(); // Remove the loader
+        loadingCard.remove(); 
         
         if (!response.ok) {
             stageArea.insertAdjacentHTML('beforeend', `<div class="alert alert-danger">Server error during parsing. Check console logs.</div>`);
@@ -67,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const playlists = await response.json();
         displayStagedPlaylists(playlists);
-        folderPicker.value = ''; // Reset for next selection
+        folderPicker.value = '';
     });
 
     function createLoadingCard() {
