@@ -1,15 +1,9 @@
-version: '3.8'
-
 services:
   web:
     build: ./app
     ports:
-      - "5001:5000"
+      - "6969:5000" # Changed: Access from your browser on port 6969
     volumes:
-      - ./db:/usr/src/app/db
-      - C:\path\to\your\audiobooks:/mnt/audiobooks:ro
-    environment:
-      - YOTO_EMAIL=your_email@example.com
-      - YOTO_PASSWORD=your_yoto_password
-      - MEDIA_FOLDER_PATH=/mnt/audiobooks
+      # Mount a single folder to persist the DB, settings, and temp files
+      - ./data:/app/data
     restart: unless-stopped
