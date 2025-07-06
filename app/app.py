@@ -1,14 +1,15 @@
 import os, json, time, shutil
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, send_file
 from threading import Thread
 
 import database as db
 import scraper
 import automation
 import parser
+import image_generator # <-- THIS IMPORT WAS MISSING
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'the-final-secret-key-for-real-this-time-v3'
+app.config['SECRET_KEY'] = 'the-final-secret-key-for-real-this-time-v4'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
 # --- Context Processor to make queue count available to all templates ---
@@ -54,7 +55,6 @@ def settings_page():
     session_exists = os.path.exists(session_file_path)
     return render_template('settings.html', session_exists=session_exists)
 
-# --- NEW ROUTE TO SERVE THE HELPER SCRIPT ---
 @app.route('/download-helper')
 def download_helper_script():
     return send_from_directory(
@@ -99,6 +99,36 @@ def upload_batch_api():
         run_in_background(automation.upload_playlist_task, playlist_data)
     return jsonify({"status": "success"})
 
+# === THE MISSING API ROUTE IS HERE ===
+@app.route('/api/generate-print-sheet', methods=['POST'])
+def generate_print_sheet_api():
+    queue_items = db.get_print_queue_items()
+    image_urls = [item['cover_image_url'] for item in queue_items]
+    if not image_urls: return "Print queue is empty.", 400
+    try:
+        image_buffer = image_generator.generate_print_sheet(image_urls)
+        db.clear_print_queue()
+        return send_file(image_buffer, mimetype='image/png', as_attachment=True, download_name='yoto-matic-print-sheet.png')
+    except Exception as e:
+        print(f"Error generating print sheet: {e}")
+        return "Error generating image", 500
+# =======================================
+
+@app.route('/api/print-queue/add/<int:playlist_id>', methods=['POST'])
+def add_to_queue_api(playlist_id):
+    db.add_to_print_queue(playlist_id)
+    return jsonify({"success": True, "queue_count": db.get_print_queue_count()})
+
+@app.route('/api/print-queue/remove/<int:playlist_id>', methods=['POST'])
+def remove_from_queue_api(playlist_id):
+    db.remove_from_print_queue(playlist_id)
+    return jsonify({"success": True, "queue_count": db.get_print_queue_count()})
+
+@app.route('/api/print-queue/clear', methods=['POST'])
+def clear_queue_api():
+    db.clear_print_queue()
+    return jsonify({"success": True, "queue_count": 0})
+    
 @app.route('/api/test-session', methods=['POST'])
 def test_session_api():
     if not os.path.exists(os.path.join('data', 'yoto_session.json')):
