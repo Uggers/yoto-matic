@@ -3,3 +3,4 @@ selenium
 gunicorn
 werkzeug
 requests
+Pillow
