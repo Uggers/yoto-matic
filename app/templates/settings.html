@@ -1,38 +1,75 @@
 {% extends "layout.html" %}
 {% block content %}
-<h1 class="h2 mb-4">Settings</h1>
+<h1 class="h2 mb-4">Settings & Authentication</h1>
+
 <div class="card">
     <div class="card-body">
-        <h5 class="card-title">Yoto Credentials</h5>
-        <p class="card-text text-muted">Your credentials are required for the app to sync your library and upload new playlists. They are stored locally in a file inside the container.</p>
-        <form id="settings-form" method="POST">
-            <div id="test-result-alert" class="alert d-none" role="alert"></div>
-            <div class="mb-3">
-                <label for="yoto_email" class="form-label">Yoto Email Address</label>
-                <input type="email" class="form-control" id="yoto_email" name="yoto_email" value="{{ settings.yoto_email or '' }}" required>
+        <h5 class="card-title">Yoto Authentication Workflow</h5>
+        <p class="card-text text-muted">
+            This app uses a secure session file to interact with your Yoto account, meaning your password is never stored on the server.
+            Follow these steps to generate and upload your session file.
+        </p>
+
+        <hr>
+
+        <!-- Step 1: Download Helper -->
+        <div class="mb-4">
+            <h4>Step 1: Download the Session Helper</h4>
+            <p>This Python script will open a Chrome window on your computer so you can log in securely. You only need to do this step once.</p>
+            <a href="{{ url_for('download_helper_script') }}" class="btn btn-outline-primary"><i class="bi bi-download me-2"></i>Download <strong>local_login_helper.py</strong></a>
+            <div class="form-text mt-2">
+                Note: To run this script, you may need to install Playwright on your computer by opening a terminal and running: <br>
+                <code>pip install playwright && playwright install</code>
             </div>
-            <div class="mb-3">
-                <label for="yoto_password" class="form-label">Yoto Password</label>
-                <input type="password" class="form-control" id="yoto_password" name="yoto_password" value="{{ settings.yoto_password or '' }}" required>
+        </div>
+
+        <!-- Step 2: Run and Upload -->
+        <div class="mb-4">
+            <h4>Step 2: Run the Helper & Upload the Result</h4>
+            <p>Run the downloaded script. It will open Chrome. Log in to Yoto, then press Enter in the terminal. A `yoto_session.json` file will be saved to your Desktop. Upload that file here.</p>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="input-group">
+                    <input type="file" class="form-control" id="session_file" name="session_file" accept=".json" required>
+                    <button class="btn btn-primary" type="submit">Upload & Save Session</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Step 3: Test -->
+        <div>
+            <h4>Step 3: Test Your Session</h4>
+            <p>Once you've uploaded your session file, test it to make sure everything is working.</p>
+            <div>
+                <strong>Current Status:</strong>
+                {% if session_exists %}
+                    <span class="badge bg-success">Session File Found</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">No Session File Found</span>
+                {% endif %}
             </div>
-            <button type="submit" class="btn btn-primary">Save Settings</button>
-            <button type="button" id="test-btn" class="btn btn-outline-secondary">Test Credentials</button>
-        </form>
+            <button type="button" id="test-btn" class="btn btn-secondary mt-2" {% if not session_exists %}disabled{% endif %}>
+                <i class="bi bi-robot me-1"></i> Test Current Session
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-document.getElementById('test-btn').addEventListener('click', async () => {
-    const email = document.getElementById('yoto_email').value;
-    const password = document.getElementById('yoto_password').value;
-    const response = await fetch('/api/test-credentials', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-    });
+document.getElementById('test-btn')?.addEventListener('click', async () => {
+    const response = await fetch('/api/test-session', { method: 'POST' });
     if (response.ok) {
         window.location.href = "{{ url_for('activity_page') }}";
+    }
+});
+
+// Disable the test button if the file input is used, prompting user to upload first.
+document.getElementById('session_file')?.addEventListener('change', () => {
+    const testBtn = document.getElementById('test-btn');
+    if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.textContent = 'Upload New Session First';
     }
 });
 </script>
