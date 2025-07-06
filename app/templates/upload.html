@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1 class="h2 mb-4">Upload New Playlist</h1>
+<div class="card">
+    <div class="card-body">
+        <form id="upload-form" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="title" class="form-label">Playlist Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description (Optional)</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="cover_image" class="form-label">Cover Artwork <span class="text-danger">*</span></label>
+                <input class="form-control" type="file" id="cover_image" name="cover_image" accept="image/png, image/jpeg" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="audio_files" class="form-label">Audio Files <span class="text-danger">*</span></label>
+                <input class="form-control" type="file" id="audio_files" name="audio_files" accept="audio/mp3, audio/m4a, audio/ogg" multiple required>
+                <div class="form-text">You can select multiple audio files. They will be uploaded in alphabetical order.</div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="btn btn-primary">
+                <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                Start Upload
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('upload-form').addEventListener('submit', (e) => {
+        const btn = document.getElementById('submit-btn');
+        const spinner = btn.querySelector('.spinner-border');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Uploading...`;
+    });
+</script>
+{% endblock %}

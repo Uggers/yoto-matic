@@ -1,0 +1,4 @@
+flask
+selenium
+gunicorn
+werkzeug
